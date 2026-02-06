@@ -19,19 +19,30 @@ class GridMap:
         self.depth = int(params['grid_depth'])
         self.resolution = float(params['grid_resolution'])
 
-        # Create occupancy grid (0 = free, 1 = occupied)
+        # Create occupancy grid (0 = free, 1 = obstacle, 2 = induct station, 3 = eject station)
         self.grid = np.zeros((self.depth, self.height, self.width), dtype=np.uint8)
 
         # Mark obstacles in the grid
         obstacles_regions_flat = params['obstacle_regions']
         self.mark_obstacles(obstacles_regions_flat)
+        
+        # Mark induct and eject stations
+        induct_stations_flat = params['induct_stations']
+        self.mark_induct_stations(induct_stations_flat)
+        
+        eject_stations_flat = params['eject_stations']
+        self.mark_eject_stations(eject_stations_flat)
 
         total_cells = self.width * self.height * self.depth
-        obstacle_cells = np.sum(self.grid)
+        obstacle_cells = np.sum(self.grid == 1)
+        induct_cells = np.sum(self.grid == 2)
+        eject_cells = np.sum(self.grid == 3)
         print("Grid Initialized:")
         print(f" - Dimensions: {self.width} x {self.height} x {self.depth}")
         print(f" - Total Cells: {total_cells}")
         print(f" - Obstacle Cells: {obstacle_cells}")
+        print(f" - Induct Stations: {induct_cells}")
+        print(f" - Eject Stations: {eject_cells}")
         print(f" - Resolution: {self.resolution}")
 
 
@@ -55,7 +66,34 @@ class GridMap:
                     for x in range(x_min, x_max + 1):
                         if self._in_bounds(x, y, z):
                             self.grid[z, y, x] = 1  # Mark as occupied
+    
+    def mark_induct_stations(self, induct_stations_flat):
+        """
+        Marks induct (pickup) stations in the occupancy grid.
         
+        :param induct_stations_flat: [x, y, z, station_id, ...]
+        """
+        num_stations = len(induct_stations_flat) // 4
+        for i in range(num_stations):
+            x = int(induct_stations_flat[i * 4 + 0] / self.resolution)
+            y = int(induct_stations_flat[i * 4 + 1] / self.resolution)
+            z = int(induct_stations_flat[i * 4 + 2] / self.resolution)
+            if self._in_bounds(x, y, z):
+                self.grid[z, y, x] = 2  # Mark as induct station
+    
+    def mark_eject_stations(self, eject_stations_flat):
+        """
+        Marks eject (dropoff) stations in the occupancy grid.
+        
+        :param eject_stations_flat: [x, y, z, station_id, ...]
+        """
+        num_stations = len(eject_stations_flat) // 4
+        for i in range(num_stations):
+            x = int(eject_stations_flat[i * 4 + 0] / self.resolution)
+            y = int(eject_stations_flat[i * 4 + 1] / self.resolution)
+            z = int(eject_stations_flat[i * 4 + 2] / self.resolution)
+            if self._in_bounds(x, y, z):
+                self.grid[z, y, x] = 3  # Mark as eject station
 
     def _in_bounds(self, x, y, z):
         return 0 <= x < self.width and 0 <= y < self.height and 0 <= z < self.depth
