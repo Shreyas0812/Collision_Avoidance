@@ -97,7 +97,107 @@ class GridMap:
 
     def _in_bounds(self, x, y, z):
         return 0 <= x < self.width and 0 <= y < self.height and 0 <= z < self.depth
+    
+
+    def continuous_to_grid(self, x, y, z):
+        """
+        Converts continuous coordinates to grid indices.
+        
+        :param x: Continuous x coordinate
+        :param y: Continuous y coordinate
+        :param z: Continuous z coordinate
+        :return: (grid_x, grid_y, grid_z)
+        """
+        grid_x = int(round(x / self.resolution))
+        grid_y = int(round(y / self.resolution))
+        grid_z = int(round(z / self.resolution))
+        return (grid_x, grid_y, grid_z)
+    
+    def grid_to_continuous(self, grid_x, grid_y, grid_z):
+        """
+        Converts grid indices to continuous coordinates.
+        
+        :param grid_x: Grid x index
+        :param grid_y: Grid y index
+        :param grid_z: Grid z index
+        :return: (x, y, z)
+        """
+        x = grid_x * self.resolution
+        y = grid_y * self.resolution
+        z = grid_z * self.resolution
+        return (x, y, z)
+    
+    def is_valid_cell(self, grid_x, grid_y, grid_z):
+        """
+        Checks if a grid cell is valid (within bounds and not an obstacle).
+        
+        :param grid_x: Grid x index
+        :param grid_y: Grid y index
+        :param grid_z: Grid z index
+        :return: True if valid, False otherwise
+        """
+        if not self._in_bounds(grid_x, grid_y, grid_z):
+            return False
+        if self.grid[grid_z, grid_y, grid_x] == 1:
+            return False
+        return True
+    
+    def is_induct_station(self, grid_x, grid_y, grid_z):
+        """
+        Checks if a grid cell is an induct station.
+        
+        :param grid_x: Grid x index
+        :param grid_y: Grid y index
+        :param grid_z: Grid z index
+        :return: True if induct station, False otherwise
+        """
+        if not self._in_bounds(grid_x, grid_y, grid_z):
+            return False
+        return self.grid[grid_z, grid_y, grid_x] == 2
+    
+    def is_eject_station(self, grid_x, grid_y, grid_z):
+        """
+        Checks if a grid cell is an eject station.
+        
+        :param grid_x: Grid x index
+        :param grid_y: Grid y index
+        :param grid_z: Grid z index
+        :return: True if eject station, False otherwise
+        """
+        if not self._in_bounds(grid_x, grid_y, grid_z):
+            return False
+        return self.grid[grid_z, grid_y, grid_x] == 3
+
+    def get_neighbors(self, grid_x, grid_y, grid_z):
+        """
+        Gets valid neighboring cells (6-connectivity).
+        
+        :param grid_x: Grid x index
+        :param grid_y: Grid y index
+        :param grid_z: Grid z index
+        :return: List of valid neighbor coordinates [(x1, y1, z1), (x2, y2, z2), ...]
+        """
+        neighbors = []
+        directions = [(-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)]
+        
+        current_cell_type = self.grid[grid_z, grid_y, grid_x]
+
+        for dx, dy, dz in directions:
+            nx, ny, nz = grid_x + dx, grid_y + dy, grid_z + dz
+            if not self.is_valid_cell(nx, ny, nz):
+                continue
+                
+            neighbor_cell_type = self.grid[nz, ny, nx]    
             
+            if current_cell_type == 2 and neighbor_cell_type == 2:
+                continue
+            if current_cell_type == 3 and neighbor_cell_type == 3:
+                continue
+
+            neighbors.append((nx, ny, nz))
+        
+        return neighbors
+
 if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(current_dir, 'config', 'gridworld_warehouse_small.yaml')
