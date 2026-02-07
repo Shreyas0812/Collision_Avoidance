@@ -97,3 +97,47 @@ class TimeBasedCollisionAvoidance:
         counter = 0
         open_set = [(0, counter, (start, 0), [start])]
         closed_set = set()
+
+        while open_set:
+            f_score, _, (current_pos, current_time), path = heapq.heappop(open_set)
+
+            if (current_pos, current_time) in closed_set:
+                continue
+
+            if current_pos == goal:
+                return path
+            
+            if current_time >= max_time:
+                continue
+
+            closed_set.add((current_pos, current_time))
+
+            # Wait in place option
+            next_time = current_time + 1
+            if not self.is_reserved(*current_pos, next_time, agent_id):
+                path_new = path + [current_pos]
+                g_score = len(path_new) - 1
+                h_score = self.heuristic(current_pos, goal)
+                f_score = g_score + h_score
+                counter += 1
+
+                heapq.heappush(open_set, (f_score, counter, (current_pos, next_time), path_new))
+
+            # Move to neighbors
+            for neighbor in self.grid_map.get_neighbors(*current_pos):
+                
+
+                if ((neighbor, next_time) in closed_set) or (self.is_reserved(*neighbor, next_time, agent_id)) or (self.has_edge_conflict(current_pos, neighbor, next_time, agent_id)):
+                    continue
+
+                path_new = path + [neighbor]
+                g_score = len(path_new) - 1
+                h_score = self.heuristic(neighbor, goal)
+                f_score = g_score + h_score
+                counter += 1
+
+                heapq.heappush(open_set, (f_score, counter, (neighbor, next_time), path_new))
+
+        return None
+    
+    
