@@ -1,5 +1,9 @@
 import heapq
+import os
+import sys
 from collections import defaultdict
+
+from grid_map import GridMap
 
 class TimeBasedCollisionAvoidance:
     """
@@ -140,4 +144,93 @@ class TimeBasedCollisionAvoidance:
 
         return None
     
+    def plan_all_agents(self, agents, goals, priorities=None):
+        """
+        Plans paths for all agents considering time-based reservations.
+
+        :param agents: List of starting positions [(x1, y1, z1), (x2, y2, z2), ...]
+        :param goals: List of goal positions [(x1, y1, z1), (x2, y2, z2), ...]
+        :param priorities: Optional list of agent IDs in order of priority (lower index = higher priority)
+        :return: Dictionary {agent_id: path} where path is a list of positions or None if no path found
+        """
+        if priorities is None:
+            priorities = list(range(len(agents)))
+
+        agent_paths = {}
+        for idx in priorities:
+            agent = agents[idx]
+            agent_id = agent.id
+
+            start = self.grid_map.continuous_to_grid(agent.pos[0], agent.pos[1], agent.pos[2])
+
+            if idx not in goals and agent_id not in goals:
+                # Agent has no goal, just reserve its current position
+                agent_paths[agent_id] = [start]
+                self.reserve_path(agent_paths[agent_id], agent_id)
+                continue
+
+            goal = goals[idx] if idx in goals else goals[agent_id]
+
+            # Plan path for the agent
+            path = self.plan_path_with_reservations(start, goal, agent_id)
+
+            if path:
+                agent_paths[agent_id] = path
+                self.reserve_path(path, agent_id)
+            else:
+                # No Path, agent will wait in place indefinitely
+                agent_paths[agent_id] = [start]
+                self.reserve_path(agent_paths[agent_id], agent_id)
+
+        return agent_paths
     
+
+if __name__ == "__main__":
+    PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+    if PROJECT_ROOT not in sys.path:
+        sys.path.insert(0, PROJECT_ROOT)
+
+    class SimpleAgent:
+        def __init__(self, agent_id, pos):
+            self.id = agent_id
+            self.pos = pos
+
+    def check_collisions(path1, path2):
+        collisions = 0
+        max_len = max(len(path1), len(path2))
+
+        p1 = path1 + [path1[-1]] * (max_len - len(path1))
+        p2 = path2 + [path2[-1]] * (max_len - len(path2))
+
+        for t in range(max_len):
+            if p1[t] == p2[t]:
+                collisions += 1
+                print(f"  Collision at time {t}: both at {p1[t]}")
+
+        return collisions
+
+    print("\n--- Example: Head-On Collision ---")
+    config_path = os.path.join(PROJECT_ROOT, "config", "gridworld_warehouse_small.yaml")
+    grid_map = GridMap(config_path)
+    ca = TimeBasedCollisionAvoidance(grid_map)
+
+    agents = [
+        SimpleAgent(0, [5, 4, 0]),
+        SimpleAgent(1, [3, 4, 0])
+    ]
+    goals = {
+        0: grid_map.continuous_to_grid(3, 4, 0),
+        1: grid_map.continuous_to_grid(5, 4, 0)
+    }
+
+    paths = ca.plan_all_agents(agents, goals)
+
+    print(f"Agent 0 path: {paths[0][:5]}...")
+    print(f"Agent 1 path: {paths[1][:5]}...")
+
+    collisions = check_collisions(paths[0], paths[1])
+    if collisions == 0:
+        print("✓ No collisions detected")
+    else:
+        print(f"✗ {collisions} collisions detected!")
+   
